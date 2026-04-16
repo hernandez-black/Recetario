@@ -292,6 +292,7 @@ const getAllRecipes = async (req, res) => {
   try {
     const conn = await pool.getConnection();
 
+    // 🔀 QUERY ACTUALIZADO: Incluye JOIN con tags
     const [rows] = await conn.execute(`
       SELECT 
         r.id, r.user_id, r.title, r.description, r.image_url, r.created_at, r.updated_at,
@@ -300,18 +301,25 @@ const getAllRecipes = async (req, res) => {
         c.content as comment_content,
         c.user_id as comment_user_id,
         cu.username as comment_username,
-        c.created_at as comment_created_at
+        c.created_at as comment_created_at,
+        t.id as tag_id,
+        t.name as tag_name,
+        t.color as tag_color
       FROM recipes r
       LEFT JOIN users u ON r.user_id = u.id
       LEFT JOIN comments c ON r.id = c.recipe_id
       LEFT JOIN users cu ON c.user_id = cu.id
+      LEFT JOIN recipe_tags rt ON r.id = rt.recipe_id
+      LEFT JOIN tags t ON rt.tag_id = t.id
       ORDER BY r.created_at DESC, c.created_at ASC
     `);
 
     conn.release();
 
     const recipesMap = new Map();
+    
     for (const row of rows) {
+      // Crear receta si no existe en el mapa
       if (!recipesMap.has(row.id)) {
         recipesMap.set(row.id, {
           id: row.id,
@@ -322,9 +330,21 @@ const getAllRecipes = async (req, res) => {
           created_at: row.created_at,
           updated_at: row.updated_at,
           username: row.username,
-          comments: []
+          comments: [],
+          tags: []  // ← Array para etiquetas
         });
       }
+      
+      // 🔀 Agregar etiqueta si existe y no está duplicada
+      if (row.tag_id && !recipesMap.get(row.id).tags.find(t => t.id === row.tag_id)) {
+        recipesMap.get(row.id).tags.push({
+          id: row.tag_id,
+          name: row.tag_name,
+          color: row.tag_color
+        });
+      }
+      
+      // Agregar comentario si existe
       if (row.comment_id) {
         recipesMap.get(row.id).comments.push({
           id: row.comment_id,
@@ -338,9 +358,11 @@ const getAllRecipes = async (req, res) => {
 
     res.json(Array.from(recipesMap.values()));
   } catch (error) {
+    console.error('Error en getAllRecipes:', error);
     res.status(500).json({ error: error.message });
   }
 };
+
 
 const getRecipeById = async (req, res) => {
   try {

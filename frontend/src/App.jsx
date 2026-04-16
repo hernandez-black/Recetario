@@ -5,6 +5,7 @@ import Home from './pages/Home';
 import Login from './pages/Login';
 import About from './pages/About';
 import CreateRecipePage from './pages/CreateRecipePage';
+import AdminPanel from './pages/AdminPanel'; // ✅ AGREGADO
 import { useNotification } from './hooks/useNotification';
 import './App.css';
 
@@ -22,6 +23,7 @@ function App() {
         <Route path="/about" element={<About />} />
         <Route path="/login" element={<Login />} />
         <Route path="/create" element={<CreateRecipePage />} />
+        <Route path="/admin" element={<AdminPanel />} /> {/* ✅ AGREGADO */}
       </Routes>
     </div>
   );

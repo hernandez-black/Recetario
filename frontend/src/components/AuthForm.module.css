@@ -1,0 +1,146 @@
+.modal {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+}
+
+.container {
+  background: var(--white);
+  padding: 40px;
+  border-radius: 15px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+  width: 100%;
+  max-width: 400px;
+}
+
+.container h2 {
+  margin-bottom: 30px;
+  color: var(--dark);
+  text-align: center;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.formGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.formGroup label {
+  font-weight: 600;
+  color: var(--dark);
+}
+
+.formGroup input {
+  padding: 12px;
+  border: 2px solid var(--light);
+  border-radius: 8px;
+  font-size: 1em;
+  transition: border-color 0.3s;
+}
+
+.formGroup input:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.submitBtn {
+  padding: 12px;
+  background: var(--primary);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 1em;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.submitBtn:hover:not(:disabled) {
+  background: #FF5252;
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(255, 107, 107, 0.4);
+}
+
+.submitBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.error {
+  background: #FFE5E5;
+  color: var(--danger);
+  padding: 12px;
+  border-radius: 8px;
+  border-left: 4px solid var(--danger);
+  font-size: 0.9em;
+}
+
+.toggle {
+  text-align: center;
+  margin-top: 20px;
+  font-size: 0.95em;
+  color: var(--border);
+}
+
+.toggleBtn {
+  background: none;
+  border: none;
+  color: var(--primary);
+  cursor: pointer;
+  font-weight: 600;
+  margin-left: 5px;
+  text-decoration: underline;
+  transition: color 0.3s;
+}
+
+.toggleBtn:hover {
+  color: #FF5252;
+}
+
+@media (max-width: 480px) {
+  .container {
+    margin: 20px;
+    padding: 30px 20px;
+  }
+
+  .container h2 {
+    font-size: 1.5em;
+  }
+}
+
+.fieldError {
+  color: #e53e3e;
+  font-size: 0.78rem;
+  margin-top: 3px;
+  display: block;
+}
+
+.hint {
+  color: #718096;
+  font-size: 0.75rem;
+  margin-top: 3px;
+  display: block;
+}
+
+.success {
+  background: #c6f6d5;
+  color: #276749;
+  border: 1px solid #9ae6b4;
+  border-radius: 6px;
+  padding: 0.6rem 0.9rem;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+}

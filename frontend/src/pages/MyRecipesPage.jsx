@@ -1,25 +1,23 @@
 import React, { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import RecipeList from '../components/recipes/RecipeList';
 import RecipeDetail from '../components/recipes/RecipeDetail';
-import AdsterraNative from '../components/ads/AdsterraNative';
-import AdsterraMobileBanner from '../components/ads/AdsterraMobileBanner';
 import { useAuth } from '../context/AuthContext';
 import { useRecipes } from '../hooks/useRecipes';
-import { useNotification } from '../hooks/useNotification';
 
-function Home() {
+function MyRecipesPage() {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
-  const { show } = useNotification();
-  
+  const [searchParams] = useSearchParams();
+  const searchQuery = searchParams.get('search') || '';
+
   const {
     recipes,
     loading,
     selectedRecipe,
     setSelectedRecipe,
     setFilter,
-    loadRecipes,
+    handleLoadMyRecipes,
     handleViewRecipe,
     handleFavorite,
     handleDeleteRecipe,
@@ -33,8 +31,8 @@ function Home() {
       if (!user) {
         navigate('/login');
       } else {
-        setFilter('all');
-        loadRecipes();
+        setFilter('mine');
+        handleLoadMyRecipes();
       }
     }
   }, [user, authLoading, navigate]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -43,31 +41,16 @@ function Home() {
     return <div className="loading-page">Cargando...</div>;
   }
 
+  const filteredRecipes = recipes.filter(r => 
+    r.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    r.description?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   return (
-    <>
-      <div className="hero">
-        <div className="hero-overlay"></div>
-        <div className="hero-content">
-          <h1 className="hero-title">Comparte tu Receta</h1>
-          <p className="hero-subtitle">Descubre, prepara y comparte las mejores recetas con la comunidad</p>
-          <button 
-            className="hero-btn"
-            onClick={() => {
-              document.getElementById('main-content')?.scrollIntoView({ behavior: 'smooth' });
-            }}
-            aria-label="Ver nuestro menú de recetas"
-          >
-            VER RECETAS &gt;
-          </button>
-        </div>
-      </div>
-
-      <main className="main" id="main-content">
-
+    <main className="main" id="main-content" style={{ paddingTop: '20px' }}>
       <section className="recipes-section">
         <div className="section-header">
-          <h2>🍲 Recetas</h2>
-          
+          <h2>👨‍🍳 Mis Recetas</h2>
           <button 
             className="btn active" 
             onClick={() => navigate('/create')}
@@ -75,11 +58,10 @@ function Home() {
           >
             + NUEVA RECETA
           </button>
-
         </div>
 
         <RecipeList
-          recipes={recipes}
+          recipes={filteredRecipes}
           loading={loading}
           onViewRecipe={handleViewRecipe}
           onFavorite={handleFavorite}
@@ -98,18 +80,7 @@ function Home() {
         />
       )}
     </main>
-    
-    {/* Contenedores de publicidad no invasivos al fondo de la página */}
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', margin: '40px 0', opacity: '0.9' }}>
-      <AdsterraNative />
-      <AdsterraMobileBanner />
-      {/* 
-        Direct Link provisto:
-        https://www.profitablecpmratenetwork.com/x0rsipw7s?key=34e1bff92114c2864bf8d411f083db9b 
-      */}
-    </div>
-    </>
   );
 }
 
-export default Home;
+export default MyRecipesPage;

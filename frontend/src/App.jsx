@@ -1,11 +1,13 @@
 import { Routes, Route } from 'react-router-dom';
-import Header from './components/Header';
-import Notification from './components/Notification';
+import Header from './components/layout/Header';
+import Notification from './components/common/Notification';
 import Home from './pages/Home';
 import Login from './pages/Login';
 import About from './pages/About';
 import CreateRecipePage from './pages/CreateRecipePage';
-import RecipeDashboardLayout from './components/RecipeDashboardLayout';
+import MyRecipesPage from './pages/MyRecipesPage';
+import SavedRecipesPage from './pages/SavedRecipesPage';
+import RecipeDashboardLayout from './components/layout/RecipeDashboardLayout';
 import AdminPanel from './pages/AdminPanel'; // ✅ AGREGADO
 import { useNotification } from './hooks/useNotification';
 import './App.css';
@@ -27,9 +29,9 @@ function App() {
         {/* Rutas con Sidebar Lateral */}
         <Route element={<RecipeDashboardLayout />}>
           <Route path="/create" element={<CreateRecipePage />} />
-          {/* Aquí puedes crear páginas reales /my-recipes después, por ahora muestran home o dummy */}
-          <Route path="/my-recipes" element={<Home />} />
-          <Route path="/saved" element={<Home />} />
+          {/* Rutas exclusivas del Sidebar en el Dashboard Layout */}
+          <Route path="/my-recipes" element={<MyRecipesPage />} />
+          <Route path="/saved" element={<SavedRecipesPage />} />
         </Route>
 
         <Route path="/admin" element={<AdminPanel />} /> {/* ✅ AGREGADO */}

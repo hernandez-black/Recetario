@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import CreateRecipeForm from '../components/CreateRecipeForm';
+import CreateRecipeForm from '../components/recipes/CreateRecipeForm';
 import { useRecipes } from '../hooks/useRecipes';
 import { useAuth } from '../context/AuthContext';
 

@@ -1,5 +1,5 @@
 import styles from './RecipeDetail.module.css';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../../context/AuthContext';
 import { useState, useEffect } from 'react';
 
 export default function RecipeDetail({ recipe, onClose, onDelete, onAddComment, onDeleteComment }) {

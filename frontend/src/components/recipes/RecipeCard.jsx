@@ -1,5 +1,5 @@
 import styles from './RecipeCard.module.css';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../../context/AuthContext';
 
 export default function RecipeCard({ recipe, onView, onFavorite, onDelete, onEdit }) {
   const { user } = useAuth();

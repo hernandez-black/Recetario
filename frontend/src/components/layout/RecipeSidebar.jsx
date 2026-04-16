@@ -1,10 +1,25 @@
 import React from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import styles from './RecipeSidebar.module.css';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../../context/AuthContext';
+import AdsterraSidebar from '../ads/AdsterraSidebar';
 
 export default function RecipeSidebar() {
   const { user } = useAuth();
+  const navigate = useNavigate();
+  const [searchTerm, setSearchTerm] = React.useState('');
+
+  const handleSearch = (e) => {
+    if (e.key === 'Enter' || e.type === 'change') {
+      const value = e.target.value;
+      setSearchTerm(value);
+      if (value.trim() !== '') {
+        navigate(`/my-recipes?search=${encodeURIComponent(value)}`);
+      } else {
+        navigate(`/my-recipes`);
+      }
+    }
+  };
   
   return (
     <aside className={styles.sidebar}>
@@ -13,9 +28,17 @@ export default function RecipeSidebar() {
       </div>
 
       <nav className={styles.navGroup}>
-        <button className={styles.navLink} onClick={() => alert('Search en tu Recetario activado')}>
-          <span className={styles.icon}>🔍</span> Buscar
-        </button>
+        <div className={styles.searchBox} style={{ margin: '10px 15px', width: 'auto' }}>
+          <span className={styles.searchIcon}>🔍</span>
+          <input 
+            type="text" 
+            placeholder="Buscar en tu Recetario" 
+            className={styles.searchInput}
+            value={searchTerm}
+            onChange={handleSearch}
+            onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(e); }}
+          />
+        </div>
 
         <div className={styles.navItemWrapper}>
           <button className={`${styles.navLink} ${styles.disabled}`} disabled>
@@ -36,16 +59,6 @@ export default function RecipeSidebar() {
         <h3 className={styles.sectionTitle}>
           <span className={styles.icon}>📖</span> Tu Recetario
         </h3>
-        
-        <div className={styles.searchBox}>
-          <span className={styles.searchIcon}>🔍</span>
-          <input 
-            type="text" 
-            placeholder="Buscar en tu Recetario" 
-            className={styles.searchInput}
-            // Logic to filter only user's recipes can be implemented in parent or globally
-          />
-        </div>
 
         <ul className={styles.subList}>
           <li>
@@ -59,6 +72,10 @@ export default function RecipeSidebar() {
             </NavLink>
           </li>
         </ul>
+      </div>
+
+      <div style={{ marginTop: 'auto', paddingTop: '20px' }}>
+        <AdsterraSidebar />
       </div>
     </aside>
   );

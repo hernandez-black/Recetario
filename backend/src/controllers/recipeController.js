@@ -4,7 +4,19 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const axios = require('axios');
-// Configurar multer para guardar imágenes en memoria
+const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
+
+// Configuración de cliente R2
+const s3 = new S3Client({
+  region: 'auto',
+  endpoint: process.env.R2_ENDPOINT,
+  credentials: {
+    accessKeyId: process.env.R2_ACCESS_KEY_ID,
+    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
+  },
+});
+
+// Configurar multer para guardar imágenes en memoria (para subirlas directo a R2)
 const storage = multer.memoryStorage();
 
 const upload = multer({ 
@@ -283,8 +295,31 @@ const validateWithAzureSafety = async (text, imagePath) => {
 
     return { isSafe: true };
   } catch (error) {
-    console.error('Error al validar con Azure Content Safety:', error.response?.data || error.message);
+    console.error('Error al validar con Azure Content Safety:', error?.response?.data || error?.message);
     return { isSafe: false, message: 'Ha ocurrido un error al verificar la seguridad del contenido subido.' };
+  }
+};
+
+// Función auxiliar para subir buffer a R2
+const uploadBufferToR2 = async (buffer, mimetype, originalname) => {
+  if (!buffer) return null;
+  const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+  const ext = path.extname(originalname);
+  const filename = `${uniqueSuffix}${ext}`;
+  
+  const uploadParams = {
+    Bucket: process.env.R2_BUCKET,
+    Key: filename,
+    Body: buffer,
+    ContentType: mimetype,
+  };
+
+  try {
+    await s3.send(new PutObjectCommand(uploadParams));
+    return `${process.env.R2_PUBLIC_URL}/${filename}`;
+  } catch (error) {
+    console.error('Error uploading to R2:', error);
+    throw error;
   }
 };
 
@@ -453,9 +488,23 @@ if (tags) {
   catch (e) { return res.status(400).json({ error: 'Formato de pasos inválido' }); }
 
   try {
-    const conn = await pool.getConnection();
+    // Subir la imagen principal a R2
+    const image_url = await uploadBufferToR2(mainImageFile.buffer, mainImageFile.mimetype, mainImageFile.originalname);
 
-    const image_url = `/uploads/${mainImageFile.filename}`;
+    // Procesar imágenes de los pasos y subirlas a R2
+    const finalSteps = [];
+    for (let idx = 0; idx < steps.length; idx++) {
+      const step = steps[idx];
+      const stepImgFile = files.find(f => f.fieldname === `step_image_${idx}`);
+      let step_image_url = step.image_url || null; // preservar URL si hubiese
+      
+      if (stepImgFile) {
+        step_image_url = await uploadBufferToR2(stepImgFile.buffer, stepImgFile.mimetype, stepImgFile.originalname);
+      }
+      finalSteps.push({ ...step, image_url: step_image_url });
+    }
+
+    const conn = await pool.getConnection();
 
     // 🔴 IMPORTANTE: Usar INSERT sin UUID() y sin 'id', porque tu BD usa INT AUTO_INCREMENT
     const [result] = await conn.execute(
@@ -469,7 +518,7 @@ if (tags) {
         sanitizedDesc, 
         image_url,
         JSON.stringify(ingredients),  // Guardar como JSON string
-        JSON.stringify(steps),        // Guardar como JSON string
+        JSON.stringify(finalSteps),   // Pasos ya resueltos con imágenes R2
         diners || null, 
         cook_time || null
       ]
@@ -506,12 +555,26 @@ if (tags) {
 
 const updateRecipe = async (req, res) => {
   const { id } = req.params;
-  const { title, description } = req.body;
-  const file = req.file;
+  const { title, description, tags, diners, cook_time, ingredients: ingredientsStr, steps: stepsStr } = req.body;
+  const files = req.files || [];
+  const mainImageFile = files.find(f => f.fieldname === 'image') || req.file;
 
   if (!id || !isValidId(id)) {
-    if (file) fs.unlinkSync(file.path);
     return res.status(400).json({ error: 'ID de receta no válido' });
+  }
+
+  // Parsear campos complejos
+  let selectedTags = [];
+  if (tags) {
+    try { selectedTags = typeof tags === 'string' ? JSON.parse(tags) : tags; } catch (e) {}
+  }
+  let ingredients = null;
+  if (ingredientsStr) {
+    try { ingredients = JSON.parse(ingredientsStr); } catch (e) { return res.status(400).json({ error: 'Formato de ingredientes inválido' }); }
+  }
+  let steps = null;
+  if (stepsStr) {
+    try { steps = JSON.parse(stepsStr); } catch (e) { return res.status(400).json({ error: 'Formato de pasos inválido' }); }
   }
 
   try {
@@ -523,13 +586,11 @@ const updateRecipe = async (req, res) => {
     );
 
     if (recipes.length === 0) {
-      if (file) fs.unlinkSync(file.path);
       conn.release();
       return res.status(404).json({ error: 'Receta no encontrada' });
     }
 
     if (recipes[0].user_id !== req.user.id) {
-      if (file) fs.unlinkSync(file.path);
       conn.release();
       return res.status(403).json({ error: 'No autorizado' });
     }
@@ -557,29 +618,61 @@ const updateRecipe = async (req, res) => {
     }
 
     let image_url = recipes[0].image_url;
-    if (file) {
-      if (recipes[0].image_url) {
-        const oldPath = path.join(__dirname, '../../' + recipes[0].image_url);
-        if (fs.existsSync(oldPath)) {
-          fs.unlinkSync(oldPath);
-        }
-      }
-      image_url = `/uploads/${file.filename}`;
+    if (mainImageFile) {
+      // Subir nueva imagen a R2 (sin borrar la vieja de momento, por seguridad en nube compartida o si es la default)
+      image_url = await uploadBufferToR2(mainImageFile.buffer, mainImageFile.mimetype, mainImageFile.originalname);
     }
 
     // Validar con Azure Content Safety (sólo lo que haya cambiado o todo)
     const textToValidate = `${cleanedTitle} \n ${cleanedDesc}`;
-    const safetyCheck = await validateWithAzureSafety(textToValidate, file ? file.path : null);
+    const safetyCheck = await validateWithAzureSafety(textToValidate, mainImageFile ? mainImageFile.buffer : null);
     if (!safetyCheck.isSafe) {
-      if (file) fs.unlinkSync(file.path);
       conn.release();
       return res.status(400).json({ error: safetyCheck.message });
     }
+    
+    // Procesar imágenes de los pasos (si enviaron) y subirlas a R2
+    let finalStepsArray = steps;
+    if (steps && Array.isArray(steps)) {
+      finalStepsArray = [];
+      for (let idx = 0; idx < steps.length; idx++) {
+        const step = steps[idx];
+        const stepImgFile = files.find(f => f.fieldname === `step_image_${idx}`);
+        let step_image_url = step.image_url || null; // preservar URL previa
+        
+        if (stepImgFile) {
+          step_image_url = await uploadBufferToR2(stepImgFile.buffer, stepImgFile.mimetype, stepImgFile.originalname);
+        }
+        finalStepsArray.push({ ...step, image_url: step_image_url });
+      }
+    }
+
+    // Preparar campos para actualizar (preservar existentes si no se pasaron)
+    const finalIngredients = ingredients !== null ? JSON.stringify(ingredients) : recipes[0].ingredients;
+    const finalSteps = finalStepsArray !== null ? JSON.stringify(finalStepsArray) : recipes[0].steps;
+    const finalDiners = diners !== undefined ? (diners || null) : recipes[0].diners;
+    const finalCookTime = cook_time !== undefined ? (cook_time || null) : recipes[0].cook_time;
 
     await conn.execute(
-      'UPDATE recipes SET title = ?, description = ?, image_url = ?, updated_at = NOW() WHERE id = ?',
-      [cleanedTitle, cleanedDesc, image_url, id]
+      `UPDATE recipes SET 
+       title = ?, description = ?, image_url = ?, updated_at = NOW(),
+       ingredients = ?, steps = ?, diners = ?, cook_time = ?
+       WHERE id = ?`,
+      [cleanedTitle, cleanedDesc, image_url, finalIngredients, finalSteps, finalDiners, finalCookTime, id]
     );
+    
+    // Si pasaron tags, actualizarlas
+    if (tags) {
+      await conn.execute('DELETE FROM recipe_tags WHERE recipe_id = ?', [id]);
+      if (selectedTags && Array.isArray(selectedTags) && selectedTags.length > 0) {
+        for (const tagId of selectedTags) {
+          await conn.execute(
+            'INSERT INTO recipe_tags (recipe_id, tag_id) VALUES (?, ?)',
+            [id, tagId]
+          );
+        }
+      }
+    }
 
     const [updatedRecipes] = await conn.execute(
       'SELECT * FROM recipes WHERE id = ?',

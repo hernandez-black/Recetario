@@ -85,7 +85,11 @@ export default function RecipeDetail({ recipe, onClose, onDelete, onAddComment, 
         </div>
 
         {recipe.image_url && (
-          <img src={`http://localhost:3001${recipe.image_url}`} alt={recipe.title} className={styles.image} />
+          <img 
+            src={recipe.image_url.startsWith('http') ? recipe.image_url : `http://localhost:3001${recipe.image_url}`} 
+            alt={recipe.title} 
+            className={styles.image} 
+          />
         )}
 
         <div className={styles.description}>

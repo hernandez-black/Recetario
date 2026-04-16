@@ -29,6 +29,7 @@ function App() {
         {/* Rutas con Sidebar Lateral */}
         <Route element={<RecipeDashboardLayout />}>
           <Route path="/create" element={<CreateRecipePage />} />
+          <Route path="/edit/:id" element={<CreateRecipePage />} />
           {/* Rutas exclusivas del Sidebar en el Dashboard Layout */}
           <Route path="/my-recipes" element={<MyRecipesPage />} />
           <Route path="/saved" element={<SavedRecipesPage />} />

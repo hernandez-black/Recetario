@@ -21,7 +21,10 @@ export default function RecipeCard({ recipe, onView, onFavorite, onDelete, onEdi
     >
       <div className={styles.image}>
         {recipe.image_url ? (
-          <img src={`http://localhost:3001${recipe.image_url}`} alt={recipe.title} />
+          <img 
+            src={recipe.image_url.startsWith('http') ? recipe.image_url : `http://localhost:3001${recipe.image_url}`} 
+            alt={recipe.title} 
+          />
         ) : (
           <div className={styles.placeholder}>🍲</div>
         )}

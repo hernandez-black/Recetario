@@ -9,12 +9,12 @@ const verifyAdmin = (req, res, next) => {
 
   const token = authHeader.split(' ')[1]; // "Bearer TOKEN"
   
-  if (!token) {
-    return res.status(401).json({ error: 'Token inválido' });
+  if (!token || token === 'null' || token === 'undefined') {
+    return res.status(401).json({ error: 'Token inválido o nulo' });
   }
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret_key_default_change_this');
     
     // Verificar que el usuario sea admin
     if (decoded.role !== 'admin') {

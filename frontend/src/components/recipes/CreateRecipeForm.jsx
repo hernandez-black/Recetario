@@ -1,7 +1,11 @@
 import { useState, useRef, useEffect } from 'react';
 import styles from './CreateRecipeForm.module.css';
 
-export default function CreateRecipeForm({ onSubmit, loading }) {
+import { useNavigate } from 'react-router-dom';
+
+export default function CreateRecipeForm({ onSubmit, loading, initialData }) {
+  const navigate = useNavigate();
+  // ... (rest is unchanged except the header actions)
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [mainImage, setMainImage] = useState(null);
@@ -38,6 +42,43 @@ export default function CreateRecipeForm({ onSubmit, loading }) {
     };
     fetchTags();
   }, []);
+
+  // Pre-llenar datos en modo Edición
+  useEffect(() => {
+    if (initialData) {
+      setTitle(initialData.title || '');
+      setDescription(initialData.description || '');
+      setDiners(initialData.diners || '');
+      setCookTime(initialData.cook_time || '');
+      
+      // La API nos da /uploads/archivo.png o una URL completa, lo preparamos para el preview
+      if (initialData.image_url) {
+        // En "editar", indicamos que ya no requerimos imagen si no se sube otra nueva
+        setMainImage('existing_image'); 
+        setMainImagePreview(initialData.image_url.startsWith('http') ? initialData.image_url : `http://localhost:3001${initialData.image_url}`);
+      }
+
+      if (initialData.ingredients && Array.isArray(initialData.ingredients) && initialData.ingredients.length > 0) {
+        setIngredients(initialData.ingredients.map((text, idx) => ({ id: idx, text })));
+      }
+      
+      if (initialData.steps && Array.isArray(initialData.steps) && initialData.steps.length > 0) {
+        setSteps(initialData.steps.map((step, idx) => ({ 
+          id: idx, 
+          text: typeof step === 'string' ? step : step.text || '', 
+          image: null, 
+          preview: step.image_url 
+             ? (step.image_url.startsWith('http') ? step.image_url : `http://localhost:3001${step.image_url}`)
+             : null 
+        })));
+      }
+
+      // Si initialData ya tiene tags (el array debe venir del backend si aplica)
+      if (initialData.tags && Array.isArray(initialData.tags)) {
+        setSelectedTags(initialData.tags);
+      }
+    }
+  }, [initialData]);
 
   // 🏷️ Toggle para seleccionar/deseleccionar etiqueta
   const toggleTag = (tagId) => {
@@ -95,7 +136,12 @@ export default function CreateRecipeForm({ onSubmit, loading }) {
     formData.append('description', description);
     formData.append('diners', diners);
     formData.append('cook_time', cookTime);
-    formData.append('image', mainImage);
+    
+    // Si metieron imagen nueva (de tipo File), apendizar. 
+    // Si mainImage === 'existing_image', no enviamos archivo nuevo.
+    if (mainImage instanceof File) {
+      formData.append('image', mainImage);
+    }
 
     // Filter out empty ingredients
     const validIngredients = ingredients.filter(i => i.text.trim() !== '');
@@ -125,10 +171,9 @@ export default function CreateRecipeForm({ onSubmit, loading }) {
   return (
     <div className={styles.builderContainer}>
       <div className={styles.headerActions}>
-        <button type="button" className={styles.btnOutline}>Borrar</button>
-        <button type="button" className={styles.btnOutline}>Guardar y cerrar</button>
+        <button type="button" className={styles.btnOutline} onClick={() => navigate('/')}>Cancelar</button>
         <button type="button" className={styles.btnPrimary} onClick={handleSubmit} disabled={loading}>
-          {loading ? 'Publicando...' : 'Publicar'}
+          {loading ? 'Guardando...' : (initialData ? 'Guardar Cambios' : 'Publicar')}
         </button>
       </div>
 

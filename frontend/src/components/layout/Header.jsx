@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import styles from './Header.module.css';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
@@ -6,6 +6,12 @@ import { useTheme } from '../../context/ThemeContext';
 export default function Header() {
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
 
   return (
     <header className={styles.header}>
@@ -31,8 +37,11 @@ export default function Header() {
         </button>
         {user ? (
           <div className={styles.userInfo}>
+            {user.role === 'admin' && (
+              <Link to="/admin" className={styles.navLinkBtn} style={{ color: '#e74c3c' }}>ADMIN</Link>
+            )}
             <span className={styles.userName}>{user.username}</span>
-            <button onClick={logout} className={styles.navLinkBtn}>LOGOUT</button>
+            <button onClick={handleLogout} className={styles.navLinkBtn}>LOGOUT</button>
           </div>
         ) : (
           <span className={styles.navLink}>LOGIN</span>

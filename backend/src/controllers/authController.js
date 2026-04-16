@@ -317,16 +317,16 @@ const register = async (req, res) => {
 
     // Crear usuario
     const [result] = await conn.execute(
-      'INSERT INTO users (id, email, username, password) VALUES (UUID(), ?, ?, ?)',
-      [email, username, hashedPassword]
-    );
+  'INSERT INTO users (email, username, password, role) VALUES (?, ?, ?, ?)',
+  [email, username, hashedPassword, 'user']
+);
 
     conn.release();
 
     res.status(201).json({
       success: true,
       message: '¡Usuario registrado exitosamente!',
-      user: { email, username }
+      user: { id: result.insertId, email, username, role: 'user' }
     });
   } catch (error) {
     console.error('Error en registro:', error);
@@ -395,6 +395,7 @@ const login = async (req, res) => {
         id: user.id, 
         email: user.email, 
         username: user.username,
+        role: user.role,
         iat: Math.floor(Date.now() / 1000)
       },
       process.env.JWT_SECRET || 'secret_key_default_change_this',
@@ -408,7 +409,8 @@ const login = async (req, res) => {
       user: { 
         id: user.id, 
         email: user.email, 
-        username: user.username 
+        username: user.username,
+        role: user.role
       }
     });
   } catch (error) {

@@ -361,28 +361,24 @@ const getRecipeById = async (req, res) => {
 };
 
 const createRecipe = async (req, res) => {
-  const { title, description } = req.body;
+  const { title, description, tags } = req.body;
   const file = req.file;
 
   // Validar título
   const titleValidation = validateTitle(title);
   if (!titleValidation.isValid) {
-    if (file) {
-      fs.unlinkSync(file.path);
-    }
+    if (file) fs.unlinkSync(file.path);
     return res.status(400).json({ error: titleValidation.message });
   }
 
   // Validar descripción
   const descValidation = validateDescription(description);
   if (!descValidation.isValid) {
-    if (file) {
-      fs.unlinkSync(file.path);
-    }
+    if (file) fs.unlinkSync(file.path);
     return res.status(400).json({ error: descValidation.message });
   }
 
-  // Sanitizar contenido (eliminar cualquier link que haya pasado)
+  // Sanitizar contenido
   const sanitizedTitle = sanitizeContent(titleValidation.cleanedTitle);
   const sanitizedDesc = sanitizeContent(descValidation.cleanedDesc);
 
@@ -394,26 +390,40 @@ const createRecipe = async (req, res) => {
       image_url = `/uploads/${file.filename}`;
     }
 
+    // 🔴 CORRECCIÓN 1: NO generar UUID. MySQL lo hace automáticamente.
+    // 🔴 CORRECCIÓN 2: Quitar 'id' del INSERT y de los valores
     const [result] = await conn.execute(
-      'INSERT INTO recipes (id, user_id, title, description, image_url) VALUES (UUID(), ?, ?, ?, ?)',
+      'INSERT INTO recipes (user_id, title, description, image_url) VALUES (?, ?, ?, ?)',
       [req.user.id, sanitizedTitle, sanitizedDesc, image_url]
     );
 
-    const [recipes] = await conn.execute(
-      'SELECT * FROM recipes WHERE id = ?',
-      [result.insertId]
-    );
+    // ✅ CORRECCIÓN 3: Obtener el ID que MySQL generó automáticamente
+    const recipeId = result.insertId; // Este es un INT, como espera tu BD
+
+    // 🏷️ Guardar etiquetas si el usuario seleccionó alguna
+    if (tags && Array.isArray(tags) && tags.length > 0) {
+      for (const tagId of tags) {
+        await conn.execute(
+          'INSERT INTO recipe_tags (recipe_id, tag_id) VALUES (?, ?)',
+          [recipeId, tagId]  // recipeId ahora es INT ✅
+        );
+      }
+    }
 
     conn.release();
 
-    res.status(201).json(recipes[0]);
+    res.status(201).json({ 
+      message: 'Receta creada exitosamente',
+      recipeId 
+    });
   } catch (error) {
-    if (file) {
-      fs.unlinkSync(file.path);
-    }
-    res.status(400).json({ error: error.message });
+    if (file) fs.unlinkSync(file.path);
+    console.error('Error creando receta:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
   }
 };
+
+
 
 const updateRecipe = async (req, res) => {
   const { id } = req.params;
@@ -539,11 +549,23 @@ const deleteRecipe = async (req, res) => {
   }
 };
 
+// Definir como función constante local (sin 'exports.')
+const getAllTags = async (req, res) => {
+  try {
+    const [tags] = await pool.execute('SELECT id, name, color FROM tags ORDER BY name ASC');
+    res.json({ tags });
+  } catch (error) {
+    console.error('Error obteniendo tags:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+};
+
 module.exports = { 
   getAllRecipes, 
   getRecipeById, 
   createRecipe, 
   updateRecipe, 
   deleteRecipe, 
-  upload 
+  getAllTags,
+  upload
 };

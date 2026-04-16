@@ -9,7 +9,14 @@ function Login() {
 
   useEffect(() => {
     if (!loading && user) {
-      navigate('/');
+      // 🔐 Redirección inteligente según el rol
+      if (user.role === 'admin') {
+        console.log('🔐 Usuario admin detectado, redirigiendo a /admin');
+        navigate('/admin');
+      } else {
+        console.log('👤 Usuario normal detectado, redirigiendo a /');
+        navigate('/');
+      }
     }
   }, [user, loading, navigate]);
 
@@ -19,7 +26,11 @@ function Login() {
 
   return (
     <div style={{ padding: '2rem', maxWidth: '600px', margin: '0 auto' }}>
-      <AuthForm onSuccess={() => navigate('/')} />
+      <AuthForm 
+        onSuccess={() => {
+          // La redirección se maneja automáticamente en el useEffect
+        }} 
+      />
     </div>
   );
 }

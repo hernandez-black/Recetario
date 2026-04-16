@@ -28,6 +28,21 @@ export default function RecipeCard({ recipe, onView, onFavorite, onDelete, onEdi
       </div>
 
       <div className={styles.content}>
+        {/* 🏷️ Mostrar etiquetas */}
+        {recipe.tags && recipe.tags.length > 0 && (
+          <div className={styles.tags}>
+            {recipe.tags.map(tag => (
+              <span 
+                key={tag.id} 
+                className={styles.tag}
+                style={{ backgroundColor: tag.color }}
+              >
+                {tag.name}
+              </span>
+            ))}
+          </div>
+        )}
+
         <h3>{recipe.title}</h3>
         <div className={styles.meta}>
           <p>👨‍🍳 {recipe.username || 'Anónimo'}</p>

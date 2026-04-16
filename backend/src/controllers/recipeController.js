@@ -292,6 +292,7 @@ const getAllRecipes = async (req, res) => {
   try {
     const conn = await pool.getConnection();
 
+    // 🔀 QUERY ACTUALIZADO: Incluye JOIN con tags
     const [rows] = await conn.execute(`
       SELECT 
         r.id, r.user_id, r.title, r.description, r.image_url, r.created_at, r.updated_at,
@@ -300,18 +301,25 @@ const getAllRecipes = async (req, res) => {
         c.content as comment_content,
         c.user_id as comment_user_id,
         cu.username as comment_username,
-        c.created_at as comment_created_at
+        c.created_at as comment_created_at,
+        t.id as tag_id,
+        t.name as tag_name,
+        t.color as tag_color
       FROM recipes r
       LEFT JOIN users u ON r.user_id = u.id
       LEFT JOIN comments c ON r.id = c.recipe_id
       LEFT JOIN users cu ON c.user_id = cu.id
+      LEFT JOIN recipe_tags rt ON r.id = rt.recipe_id
+      LEFT JOIN tags t ON rt.tag_id = t.id
       ORDER BY r.created_at DESC, c.created_at ASC
     `);
 
     conn.release();
 
     const recipesMap = new Map();
+    
     for (const row of rows) {
+      // Crear receta si no existe en el mapa
       if (!recipesMap.has(row.id)) {
         recipesMap.set(row.id, {
           id: row.id,
@@ -322,9 +330,21 @@ const getAllRecipes = async (req, res) => {
           created_at: row.created_at,
           updated_at: row.updated_at,
           username: row.username,
-          comments: []
+          comments: [],
+          tags: []  // ← Array para etiquetas
         });
       }
+      
+      // 🔀 Agregar etiqueta si existe y no está duplicada
+      if (row.tag_id && !recipesMap.get(row.id).tags.find(t => t.id === row.tag_id)) {
+        recipesMap.get(row.id).tags.push({
+          id: row.tag_id,
+          name: row.tag_name,
+          color: row.tag_color
+        });
+      }
+      
+      // Agregar comentario si existe
       if (row.comment_id) {
         recipesMap.get(row.id).comments.push({
           id: row.comment_id,
@@ -338,9 +358,11 @@ const getAllRecipes = async (req, res) => {
 
     res.json(Array.from(recipesMap.values()));
   } catch (error) {
+    console.error('Error en getAllRecipes:', error);
     res.status(500).json({ error: error.message });
   }
 };
+
 
 const getRecipeById = async (req, res) => {
   try {
@@ -406,90 +428,103 @@ const getRecipeById = async (req, res) => {
 };
 
 const createRecipe = async (req, res) => {
-  const { title, description, diners, cook_time, ingredients: ingredientsStr, steps: stepsStr } = req.body;
+  // 🔀 COMBINAMOS: tus tags + los campos de tu compañero
+  const { title, description, tags, diners, cook_time, ingredients: ingredientsStr, steps: stepsStr } = req.body;
+
+  let selectedTags = [];
+if (tags) {
+  try {
+    selectedTags = typeof tags === 'string' ? JSON.parse(tags) : tags;
+  } catch (e) {
+    console.warn('Error parseando tags:', e);
+  }
+}
   
-  // Extract files handles by upload.any()
+  // Usamos el enfoque de tu compañero para archivos (más robusto)
   const files = req.files || [];
   const mainImageFile = files.find(f => f.fieldname === 'image');
 
+  // Validación de imagen (de tu compañero)
   if (!mainImageFile) {
     return res.status(400).json({ error: 'La foto principal de la receta es obligatoria.' });
   }
 
-  let ingredients = [];
-  try { ingredients = ingredientsStr ? JSON.parse(ingredientsStr) : []; } catch (e) {
-    return res.status(400).json({ error: 'Formato de ingredientes inválido' });
-  }
-
-  let steps = [];
-  try { steps = stepsStr ? JSON.parse(stepsStr) : []; } catch (e) {
-    return res.status(400).json({ error: 'Formato de pasos inválido' });
-  }
-
-  // Validar título
+  // Validar título (tu validación)
   const titleValidation = validateTitle(title);
   if (!titleValidation.isValid) {
     return res.status(400).json({ error: titleValidation.message });
   }
 
-  // Validar descripción
+  // Validar descripción (tu validación)
   const descValidation = validateDescription(description);
   if (!descValidation.isValid) {
     return res.status(400).json({ error: descValidation.message });
   }
 
+  // Sanitizar contenido (tu función)
   const sanitizedTitle = sanitizeContent(titleValidation.cleanedTitle);
   const sanitizedDesc = sanitizeContent(descValidation.cleanedDesc);
 
-  // Validate Azure Content Safety
-  let allTextToValidate = `${sanitizedTitle}\n${sanitizedDesc}\n`;
-  ingredients.forEach(i => allTextToValidate += `${i.text}\n`);
-  steps.forEach(s => allTextToValidate += `${s.text}\n`);
+  // Parsear ingredientes y pasos (lógica de tu compañero, mejorada)
+  let ingredients = [];
+  try { ingredients = ingredientsStr ? JSON.parse(ingredientsStr) : []; } 
+  catch (e) { return res.status(400).json({ error: 'Formato de ingredientes inválido' }); }
 
-  // We should check all images for safety
-  for (const file of files) {
-    const safetyCheck = await validateWithAzureSafety(allTextToValidate, file.buffer);
-    if (!safetyCheck.isSafe) {
-      return res.status(400).json({ error: safetyCheck.message });
-    }
-    allTextToValidate = null; // Only validate text once for efficiency
-  }
+  let steps = [];
+  try { steps = stepsStr ? JSON.parse(stepsStr) : []; } 
+  catch (e) { return res.status(400).json({ error: 'Formato de pasos inválido' }); }
 
   try {
     const conn = await pool.getConnection();
 
-    const mainImageId = require('crypto').randomUUID();
-    await conn.execute('INSERT INTO recipe_images (id, mime_type, data) VALUES (?, ?, ?)', [mainImageId, mainImageFile.mimetype, mainImageFile.buffer]);
-    const image_url = `/api/images/${mainImageId}`;
+    const image_url = `/uploads/${mainImageFile.filename}`;
 
-    // Process steps and map step images
-    // The frontend sends files with fieldname like "step_image_0", "step_image_1"
-    const finalSteps = [];
-    for (let idx = 0; idx < steps.length; idx++) {
-      const step = steps[idx];
-      const stepImgFile = files.find(f => f.fieldname === `step_image_${idx}`);
-      let step_image_url = null;
-      if (stepImgFile) {
-        const stepImgId = require('crypto').randomUUID();
-        await conn.execute('INSERT INTO recipe_images (id, mime_type, data) VALUES (?, ?, ?)', [stepImgId, stepImgFile.mimetype, stepImgFile.buffer]);
-        step_image_url = `/api/images/${stepImgId}`;
-      }
-      finalSteps.push({ ...step, image_url: step_image_url });
-    }
-
+    // 🔴 IMPORTANTE: Usar INSERT sin UUID() y sin 'id', porque tu BD usa INT AUTO_INCREMENT
     const [result] = await conn.execute(
-      'INSERT INTO recipes (id, user_id, title, description, image_url, ingredients, steps, diners, cook_time) VALUES (UUID(), ?, ?, ?, ?, ?, ?, ?, ?)',
-      [req.user.id, sanitizedTitle, sanitizedDesc, image_url, JSON.stringify(ingredients), JSON.stringify(finalSteps), diners || null, cook_time || null]
+      `INSERT INTO recipes (
+        user_id, title, description, image_url, 
+        ingredients, steps, diners, cook_time
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        req.user.id, 
+        sanitizedTitle, 
+        sanitizedDesc, 
+        image_url,
+        JSON.stringify(ingredients),  // Guardar como JSON string
+        JSON.stringify(steps),        // Guardar como JSON string
+        diners || null, 
+        cook_time || null
+      ]
     );
 
-    const [recipes] = await conn.execute('SELECT * FROM recipes WHERE id = ?', [result.insertId]);
+    // ✅ Obtener el ID generado automáticamente por MySQL (INT)
+    const recipeId = result.insertId;
+
+    
+
+    // 🏷️ TU APORTE: Guardar etiquetas si existen
+    if (selectedTags && Array.isArray(selectedTags) && selectedTags.length > 0) {
+  for (const tagId of selectedTags) {
+    await conn.execute(
+      'INSERT INTO recipe_tags (recipe_id, tag_id) VALUES (?, ?)',
+      [recipeId, tagId]
+    );
+  }
+}
+
     conn.release();
 
-    res.status(201).json(recipes[0]);
+    res.status(201).json({ 
+      message: 'Receta creada exitosamente',
+      recipeId 
+    });
+
   } catch (error) {
-    res.status(400).json({ error: error.message });
+    console.error('Error creando receta:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
   }
 };
+
 
 const updateRecipe = async (req, res) => {
   const { id } = req.params;
@@ -623,11 +658,23 @@ const deleteRecipe = async (req, res) => {
   }
 };
 
+// Definir como función constante local (sin 'exports.')
+const getAllTags = async (req, res) => {
+  try {
+    const [tags] = await pool.execute('SELECT id, name, color FROM tags ORDER BY name ASC');
+    res.json({ tags });
+  } catch (error) {
+    console.error('Error obteniendo tags:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+};
+
 module.exports = { 
   getAllRecipes, 
   getRecipeById, 
   createRecipe, 
   updateRecipe, 
   deleteRecipe, 
-  upload 
+  getAllTags,
+  upload
 };

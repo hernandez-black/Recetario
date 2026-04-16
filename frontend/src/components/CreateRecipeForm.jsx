@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import styles from './CreateRecipeForm.module.css';
 
 export default function CreateRecipeForm({ onSubmit, loading }) {
@@ -13,7 +13,40 @@ export default function CreateRecipeForm({ onSubmit, loading }) {
   const [cookTime, setCookTime] = useState('');
   const [steps, setSteps] = useState([{ id: 1, text: '', image: null, preview: null }]);
 
+  // 🏷️ Estados para etiquetas
+  const [availableTags, setAvailableTags] = useState([]);
+  const [selectedTags, setSelectedTags] = useState([]);
+  const [tagsLoading, setTagsLoading] = useState(false);
+
   const mainImageInputRef = useRef(null);
+
+  // 🏷️ Cargar etiquetas disponibles al montar
+  useEffect(() => {
+    const fetchTags = async () => {
+      try {
+        setTagsLoading(true);
+        const response = await fetch('http://localhost:3001/api/tags');
+        const data = await response.json();
+        if (data.tags) {
+          setAvailableTags(data.tags);
+        }
+      } catch (error) {
+        console.error('Error cargando etiquetas:', error);
+      } finally {
+        setTagsLoading(false);
+      }
+    };
+    fetchTags();
+  }, []);
+
+  // 🏷️ Toggle para seleccionar/deseleccionar etiqueta
+  const toggleTag = (tagId) => {
+    setSelectedTags(prev => 
+      prev.includes(tagId) 
+        ? prev.filter(id => id !== tagId)
+        : [...prev, tagId]
+    );
+  };
 
   const handleMainImageChange = (e) => {
     const file = e.target.files?.[0];
@@ -62,7 +95,7 @@ export default function CreateRecipeForm({ onSubmit, loading }) {
     formData.append('description', description);
     formData.append('diners', diners);
     formData.append('cook_time', cookTime);
-    formData.append('image', mainImage); // Main image must be named 'image'
+    formData.append('image', mainImage);
 
     // Filter out empty ingredients
     const validIngredients = ingredients.filter(i => i.text.trim() !== '');
@@ -80,6 +113,11 @@ export default function CreateRecipeForm({ onSubmit, loading }) {
     });
     
     formData.append('steps', JSON.stringify(validSteps));
+
+    // 🏷️ Agregar etiquetas seleccionadas al formData
+    if (selectedTags.length > 0) {
+      formData.append('tags', JSON.stringify(selectedTags));
+    }
 
     await onSubmit(formData);
   };
@@ -133,6 +171,35 @@ export default function CreateRecipeForm({ onSubmit, loading }) {
             onChange={(e) => setDescription(e.target.value)}
           />
         </div>
+      </div>
+
+      {/* 🏷️ Sección de Etiquetas */}
+      <div className={styles.tagsSection}>
+        <h3 className={styles.sectionTitle}>Etiquetas (opcional)</h3>
+        <p className={styles.tagsHint}>Selecciona las que describan tu receta</p>
+        
+        {tagsLoading ? (
+          <div className={styles.tagsLoading}>Cargando etiquetas...</div>
+        ) : (
+          <div className={styles.tagsGrid}>
+            {availableTags.map(tag => (
+              <button
+                key={tag.id}
+                type="button"
+                className={`${styles.tagButton} ${selectedTags.includes(tag.id) ? styles.selected : ''}`}
+                style={{ 
+                  backgroundColor: selectedTags.includes(tag.id) ? tag.color : '#f1f1f1',
+                  color: selectedTags.includes(tag.id) ? 'white' : '#333',
+                  borderColor: selectedTags.includes(tag.id) ? tag.color : '#ddd'
+                }}
+                onClick={() => toggleTag(tag.id)}
+              >
+                {tag.name}
+                {selectedTags.includes(tag.id) && <span className={styles.checkmark}> ✓</span>}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className={styles.bottomSection}>

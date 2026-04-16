@@ -408,6 +408,15 @@ const getRecipeById = async (req, res) => {
 const createRecipe = async (req, res) => {
   // 🔀 COMBINAMOS: tus tags + los campos de tu compañero
   const { title, description, tags, diners, cook_time, ingredients: ingredientsStr, steps: stepsStr } = req.body;
+
+  let selectedTags = [];
+if (tags) {
+  try {
+    selectedTags = typeof tags === 'string' ? JSON.parse(tags) : tags;
+  } catch (e) {
+    console.warn('Error parseando tags:', e);
+  }
+}
   
   // Usamos el enfoque de tu compañero para archivos (más robusto)
   const files = req.files || [];
@@ -469,15 +478,17 @@ const createRecipe = async (req, res) => {
     // ✅ Obtener el ID generado automáticamente por MySQL (INT)
     const recipeId = result.insertId;
 
+    
+
     // 🏷️ TU APORTE: Guardar etiquetas si existen
-    if (tags && Array.isArray(tags) && tags.length > 0) {
-      for (const tagId of tags) {
-        await conn.execute(
-          'INSERT INTO recipe_tags (recipe_id, tag_id) VALUES (?, ?)',
-          [recipeId, tagId]  // recipeId es INT ✅
-        );
-      }
-    }
+    if (selectedTags && Array.isArray(selectedTags) && selectedTags.length > 0) {
+  for (const tagId of selectedTags) {
+    await conn.execute(
+      'INSERT INTO recipe_tags (recipe_id, tag_id) VALUES (?, ?)',
+      [recipeId, tagId]
+    );
+  }
+}
 
     conn.release();
 

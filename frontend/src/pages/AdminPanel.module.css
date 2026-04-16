@@ -108,3 +108,65 @@ th {
 }
 
 .error { color: red; }
+
+
+.badge {
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.badge.admin {
+  background-color: #dc3545;
+  color: white;
+}
+
+.badge.user {
+  background-color: #28a745;
+  color: white;
+}
+
+.recipeDesc {
+  color: #666;
+  font-size: 0.9rem;
+  margin-top: 4px;
+}
+
+.empty {
+  text-align: center;
+  padding: 2rem;
+  color: #666;
+  font-style: italic;
+}
+
+.badge {
+  padding: 6px 16px;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: capitalize;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.3s ease;
+  user-select: none;
+}
+
+.badge:hover {
+  transform: scale(1.1);
+  opacity: 0.9;
+}
+
+.badge.admin {
+  background: linear-gradient(135deg, #dc3545, #c82333);
+  color: white;
+  box-shadow: 0 2px 8px rgba(220, 53, 69, 0.4);
+}
+
+.badge.user {
+  background: linear-gradient(135deg, #28a745, #218838);
+  color: white;
+  box-shadow: 0 2px 8px rgba(40, 167, 69, 0.4);
+}

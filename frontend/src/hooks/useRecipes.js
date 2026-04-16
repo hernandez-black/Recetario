@@ -26,9 +26,9 @@ export const useRecipes = () => {
     }
   }, [show]);
 
-  const handleCreateRecipe = async (title, description, image) => {
+  const handleCreateRecipe = async (formData) => {
     try {
-      await api.createRecipe(title, description, image, token);
+      await api.createRecipe(formData, token);
       show('¡Receta creada exitosamente!', 'success');
       loadRecipes();
     } catch (error) {

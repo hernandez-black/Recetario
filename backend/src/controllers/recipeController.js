@@ -3,21 +3,9 @@ const pool = require('../config/database');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-
-// Configurar multer para guardar imágenes
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const dir = path.join(__dirname, '../../uploads');
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
-    cb(null, dir);
-  },
-  filename: (req, file, cb) => {
-    const uniqueName = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}${path.extname(file.originalname)}`;
-    cb(null, uniqueName);
-  }
-});
+const axios = require('axios');
+// Configurar multer para guardar imágenes en memoria
+const storage = multer.memoryStorage();
 
 const upload = multer({ 
   storage,
@@ -243,6 +231,63 @@ const isValidId = (id) => {
   return uuidRegex.test(id) || numericRegex.test(id);
 };
 
+// Función para validar contenido con Azure Content Safety
+const validateWithAzureSafety = async (text, imagePath) => {
+  const endpoint = process.env.AZURE_CONTENT_SAFETY_ENDPOINT;
+  const key = process.env.AZURE_CONTENT_SAFETY_KEY;
+
+  if (!endpoint || !key) {
+    console.warn('Azure Content Safety no configurado. Saltando validación de IA.');
+    return { isSafe: true };
+  }
+
+  const endpointUrl = endpoint.endsWith('/') ? endpoint : endpoint + '/';
+
+  const headers = {
+    'Ocp-Apim-Subscription-Key': key,
+    'Content-Type': 'application/json'
+  };
+
+  try {
+    // 1. Validar Texto
+    if (text) {
+      const textResponse = await axios.post(
+        `${endpointUrl}contentsafety/text:analyze?api-version=2023-10-01`,
+        { text },
+        { headers }
+      );
+      
+      const textCategories = textResponse.data.categoriesAnalysis;
+      const isTextUnsafe = textCategories.some(cat => cat.severity > 0);
+      if (isTextUnsafe) {
+        return { isSafe: false, message: 'El texto contiene contenido inapropiado, ofensivo o inseguro.' };
+      }
+    }
+
+    // 2. Validar Imagen
+    if (imageBuffer) {
+      const base64Image = imageBuffer.toString('base64');
+      
+      const imageResponse = await axios.post(
+        `${endpointUrl}contentsafety/image:analyze?api-version=2023-10-01`,
+        { image: { content: base64Image } },
+        { headers }
+      );
+      
+      const imageCategories = imageResponse.data.categoriesAnalysis;
+      const isImageUnsafe = imageCategories.some(cat => cat.severity > 0);
+      if (isImageUnsafe) {
+        return { isSafe: false, message: 'La imagen contiene contenido inapropiado, ofensivo, sexual o violento.' };
+      }
+    }
+
+    return { isSafe: true };
+  } catch (error) {
+    console.error('Error al validar con Azure Content Safety:', error.response?.data || error.message);
+    return { isSafe: false, message: 'Ha ocurrido un error al verificar la seguridad del contenido subido.' };
+  }
+};
+
 const getAllRecipes = async (req, res) => {
   try {
     const conn = await pool.getConnection();
@@ -361,51 +406,75 @@ const getRecipeById = async (req, res) => {
 };
 
 const createRecipe = async (req, res) => {
-  const { title, description, tags } = req.body;
-  const file = req.file;
+  // 🔀 COMBINAMOS: tus tags + los campos de tu compañero
+  const { title, description, tags, diners, cook_time, ingredients: ingredientsStr, steps: stepsStr } = req.body;
+  
+  // Usamos el enfoque de tu compañero para archivos (más robusto)
+  const files = req.files || [];
+  const mainImageFile = files.find(f => f.fieldname === 'image');
 
-  // Validar título
+  // Validación de imagen (de tu compañero)
+  if (!mainImageFile) {
+    return res.status(400).json({ error: 'La foto principal de la receta es obligatoria.' });
+  }
+
+  // Validar título (tu validación)
   const titleValidation = validateTitle(title);
   if (!titleValidation.isValid) {
-    if (file) fs.unlinkSync(file.path);
     return res.status(400).json({ error: titleValidation.message });
   }
 
-  // Validar descripción
+  // Validar descripción (tu validación)
   const descValidation = validateDescription(description);
   if (!descValidation.isValid) {
-    if (file) fs.unlinkSync(file.path);
     return res.status(400).json({ error: descValidation.message });
   }
 
-  // Sanitizar contenido
+  // Sanitizar contenido (tu función)
   const sanitizedTitle = sanitizeContent(titleValidation.cleanedTitle);
   const sanitizedDesc = sanitizeContent(descValidation.cleanedDesc);
+
+  // Parsear ingredientes y pasos (lógica de tu compañero, mejorada)
+  let ingredients = [];
+  try { ingredients = ingredientsStr ? JSON.parse(ingredientsStr) : []; } 
+  catch (e) { return res.status(400).json({ error: 'Formato de ingredientes inválido' }); }
+
+  let steps = [];
+  try { steps = stepsStr ? JSON.parse(stepsStr) : []; } 
+  catch (e) { return res.status(400).json({ error: 'Formato de pasos inválido' }); }
 
   try {
     const conn = await pool.getConnection();
 
-    let image_url = null;
-    if (file) {
-      image_url = `/uploads/${file.filename}`;
-    }
+    const image_url = `/uploads/${mainImageFile.filename}`;
 
-    // 🔴 CORRECCIÓN 1: NO generar UUID. MySQL lo hace automáticamente.
-    // 🔴 CORRECCIÓN 2: Quitar 'id' del INSERT y de los valores
+    // 🔴 IMPORTANTE: Usar INSERT sin UUID() y sin 'id', porque tu BD usa INT AUTO_INCREMENT
     const [result] = await conn.execute(
-      'INSERT INTO recipes (user_id, title, description, image_url) VALUES (?, ?, ?, ?)',
-      [req.user.id, sanitizedTitle, sanitizedDesc, image_url]
+      `INSERT INTO recipes (
+        user_id, title, description, image_url, 
+        ingredients, steps, diners, cook_time
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        req.user.id, 
+        sanitizedTitle, 
+        sanitizedDesc, 
+        image_url,
+        JSON.stringify(ingredients),  // Guardar como JSON string
+        JSON.stringify(steps),        // Guardar como JSON string
+        diners || null, 
+        cook_time || null
+      ]
     );
 
-    // ✅ CORRECCIÓN 3: Obtener el ID que MySQL generó automáticamente
-    const recipeId = result.insertId; // Este es un INT, como espera tu BD
+    // ✅ Obtener el ID generado automáticamente por MySQL (INT)
+    const recipeId = result.insertId;
 
-    // 🏷️ Guardar etiquetas si el usuario seleccionó alguna
+    // 🏷️ TU APORTE: Guardar etiquetas si existen
     if (tags && Array.isArray(tags) && tags.length > 0) {
       for (const tagId of tags) {
         await conn.execute(
           'INSERT INTO recipe_tags (recipe_id, tag_id) VALUES (?, ?)',
-          [recipeId, tagId]  // recipeId ahora es INT ✅
+          [recipeId, tagId]  // recipeId es INT ✅
         );
       }
     }
@@ -416,13 +485,12 @@ const createRecipe = async (req, res) => {
       message: 'Receta creada exitosamente',
       recipeId 
     });
+
   } catch (error) {
-    if (file) fs.unlinkSync(file.path);
     console.error('Error creando receta:', error);
     res.status(500).json({ error: 'Error interno del servidor' });
   }
 };
-
 
 
 const updateRecipe = async (req, res) => {
@@ -488,6 +556,15 @@ const updateRecipe = async (req, res) => {
       image_url = `/uploads/${file.filename}`;
     }
 
+    // Validar con Azure Content Safety (sólo lo que haya cambiado o todo)
+    const textToValidate = `${cleanedTitle} \n ${cleanedDesc}`;
+    const safetyCheck = await validateWithAzureSafety(textToValidate, file ? file.path : null);
+    if (!safetyCheck.isSafe) {
+      if (file) fs.unlinkSync(file.path);
+      conn.release();
+      return res.status(400).json({ error: safetyCheck.message });
+    }
+
     await conn.execute(
       'UPDATE recipes SET title = ?, description = ?, image_url = ?, updated_at = NOW() WHERE id = ?',
       [cleanedTitle, cleanedDesc, image_url, id]
@@ -502,7 +579,6 @@ const updateRecipe = async (req, res) => {
 
     res.json(updatedRecipes[0]);
   } catch (error) {
-    if (file) fs.unlinkSync(file.path);
     res.status(400).json({ error: error.message });
   }
 };

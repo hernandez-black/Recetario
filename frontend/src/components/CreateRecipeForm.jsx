@@ -1,64 +1,223 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import styles from './CreateRecipeForm.module.css';
 
 export default function CreateRecipeForm({ onSubmit, loading }) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [image, setImage] = useState(null);
+  const [mainImage, setMainImage] = useState(null);
+  const [mainImagePreview, setMainImagePreview] = useState(null);
+  
+  const [diners, setDiners] = useState('');
+  const [ingredients, setIngredients] = useState([{ id: 1, text: '' }]);
+  
+  const [cookTime, setCookTime] = useState('');
+  const [steps, setSteps] = useState([{ id: 1, text: '', image: null, preview: null }]);
+
+  const mainImageInputRef = useRef(null);
+
+  const handleMainImageChange = (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setMainImage(file);
+      setMainImagePreview(URL.createObjectURL(file));
+    }
+  };
+
+  const handleStepImageChange = (id, e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setSteps(steps.map(step => 
+        step.id === id 
+          ? { ...step, image: file, preview: URL.createObjectURL(file) } 
+          : step
+      ));
+    }
+  };
+
+  const addIngredient = () => {
+    setIngredients([...ingredients, { id: Date.now(), text: '' }]);
+  };
+
+  const updateIngredient = (id, text) => {
+    setIngredients(ingredients.map(ing => ing.id === id ? { ...ing, text } : ing));
+  };
+
+  const addStep = () => {
+    setSteps([...steps, { id: Date.now(), text: '', image: null, preview: null }]);
+  };
+
+  const updateStepText = (id, text) => {
+    setSteps(steps.map(step => step.id === id ? { ...step, text } : step));
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!title.trim() || !description.trim()) return;
+    if (!title.trim() || !description.trim() || !mainImage) {
+      alert('El título, descripción y foto de la receta son obligatorios.');
+      return;
+    }
 
-    await onSubmit(title, description, image);
-    setTitle('');
-    setDescription('');
-    setImage(null);
-    e.target.reset();
+    const formData = new FormData();
+    formData.append('title', title);
+    formData.append('description', description);
+    formData.append('diners', diners);
+    formData.append('cook_time', cookTime);
+    formData.append('image', mainImage); // Main image must be named 'image'
+
+    // Filter out empty ingredients
+    const validIngredients = ingredients.filter(i => i.text.trim() !== '');
+    formData.append('ingredients', JSON.stringify(validIngredients));
+
+    // Filter out empty steps, and append step images dynamically
+    const validSteps = [];
+    steps.forEach((step, index) => {
+      if (step.text.trim() !== '') {
+        validSteps.push({ id: step.id, text: step.text });
+        if (step.image) {
+          formData.append(`step_image_${validSteps.length - 1}`, step.image);
+        }
+      }
+    });
+    
+    formData.append('steps', JSON.stringify(validSteps));
+
+    await onSubmit(formData);
   };
 
   return (
-    <div className={styles.card}>
-      <h2>Nueva Receta</h2>
-      <form onSubmit={handleSubmit} className={styles.form}>
-        <div className={styles.formGroup}>
-          <label htmlFor="title">Título:</label>
-          <input
-            type="text"
-            id="title"
+    <div className={styles.builderContainer}>
+      <div className={styles.headerActions}>
+        <button type="button" className={styles.btnOutline}>Borrar</button>
+        <button type="button" className={styles.btnOutline}>Guardar y cerrar</button>
+        <button type="button" className={styles.btnPrimary} onClick={handleSubmit} disabled={loading}>
+          {loading ? 'Publicando...' : 'Publicar'}
+        </button>
+      </div>
+
+      <div className={styles.topSection}>
+        <div 
+          className={styles.mainImageUpload} 
+          onClick={() => mainImageInputRef.current?.click()}
+        >
+          {mainImagePreview ? (
+            <img src={mainImagePreview} alt="Receta" className={styles.previewImage} />
+          ) : (
+            <div className={styles.uploadPlaceholder}>
+              <span className={styles.iconCamera}>📷</span>
+              <p className={styles.uploadTitle}>Publicar foto del plato terminado</p>
+              <p className={styles.uploadSubtitle}>Comparte tu plato terminado con otros cocineros</p>
+            </div>
+          )}
+          <input 
+            type="file" 
+            ref={mainImageInputRef} 
+            accept="image/*" 
+            onChange={handleMainImageChange} 
+            style={{ display: 'none' }} 
+          />
+        </div>
+
+        <div className={styles.mainInfo}>
+          <input 
+            type="text" 
+            className={styles.titleInput} 
+            placeholder="Título: Mi sopa de calabaza favorita" 
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="Nombre de la receta"
-            required
           />
-        </div>
-
-        <div className={styles.formGroup}>
-          <label htmlFor="description">Descripción (Ingredientes):</label>
-          <textarea
-            id="description"
+          
+          <textarea 
+            className={styles.storyInput}
+            placeholder="Comparte un poco más acerca de este plato. ¿Qué o quién te inspiró a cocinarlo? ¿Qué lo hace especial para ti?"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder="Ingredientes y modo de preparación..."
-            rows="6"
-            required
           />
         </div>
+      </div>
 
-        <div className={styles.formGroup}>
-          <label htmlFor="image">Imagen:</label>
-          <input
-            type="file"
-            id="image"
-            accept="image/*"
-            onChange={(e) => setImage(e.target.files?.[0] || null)}
-          />
+      <div className={styles.bottomSection}>
+        <div className={styles.ingredientsSection}>
+          <h3 className={styles.sectionTitle}>Ingredientes</h3>
+          <div className={styles.dinersWrap}>
+            <label>Comensales</label>
+            <input 
+              type="text" 
+              placeholder="nº comensales" 
+              className={styles.smallInput}
+              value={diners}
+              onChange={(e) => setDiners(e.target.value)}
+            />
+          </div>
+
+          <div className={styles.ingredientsList}>
+            {ingredients.map((ing) => (
+              <div key={ing.id} className={styles.ingredientRow}>
+                <span className={styles.dragIcon}>≡</span>
+                <input 
+                  type="text" 
+                  placeholder="Ej: 250g harina" 
+                  className={styles.itemInput}
+                  value={ing.text}
+                  onChange={(e) => updateIngredient(ing.id, e.target.value)}
+                />
+              </div>
+            ))}
+            <button type="button" className={styles.addBtn} onClick={addIngredient}>
+              + Ingrediente
+            </button>
+          </div>
         </div>
 
-        <button type="submit" disabled={loading} className={styles.submitBtn}>
-          {loading ? 'Creando...' : 'Crear Receta'}
-        </button>
-      </form>
+        <div className={styles.stepsSection}>
+          <h3 className={styles.sectionTitle}>Pasos</h3>
+          <div className={styles.timeWrap}>
+            <label>Tiempo</label>
+            <input 
+              type="text" 
+              placeholder="Tiempo" 
+              className={styles.smallInput}
+              value={cookTime}
+              onChange={(e) => setCookTime(e.target.value)}
+            />
+          </div>
+
+          <div className={styles.stepsList}>
+            {steps.map((step, index) => (
+              <div key={step.id} className={styles.stepRow}>
+                <div className={styles.stepHeader}>
+                  <span className={styles.stepNumber}>{index + 1}</span>
+                  <span className={styles.dragIcon}>≡</span>
+                  <textarea 
+                    placeholder="Ej: Mezcla los huevos con la leche hasta..."
+                    className={styles.stepInput}
+                    value={step.text}
+                    onChange={(e) => updateStepText(step.id, e.target.value)}
+                  />
+                </div>
+                
+                <div className={styles.stepImageWrapper}>
+                  {step.preview ? (
+                    <img src={step.preview} alt={`Paso ${index + 1}`} className={styles.stepPreview} />
+                  ) : (
+                    <label className={styles.stepImagePlaceholder}>
+                      <span className={styles.iconCamera}>📷</span>
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        onChange={(e) => handleStepImageChange(step.id, e)} 
+                        style={{ display: 'none' }}
+                      />
+                    </label>
+                  )}
+                </div>
+              </div>
+            ))}
+            <button type="button" className={styles.addBtn} onClick={addStep}>
+              + Paso
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

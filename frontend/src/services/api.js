@@ -40,12 +40,7 @@ export const api = {
     return handleResponse(response);
   },
 
-  createRecipe: async (title, description, image, token) => {
-    const formData = new FormData();
-    formData.append('title', title);
-    formData.append('description', description);
-    if (image) formData.append('image', image);
-
+  createRecipe: async (formData, token) => {
     const response = await fetch(`${API_BASE_URL}/recipes`, {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${token}` },

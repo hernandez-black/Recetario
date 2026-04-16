@@ -9,7 +9,8 @@ const authMiddleware = (req, res, next) => {
   }
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const secret = process.env.JWT_SECRET || 'secret_key_default_change_this';
+    const decoded = jwt.verify(token, secret);
     req.user = decoded;
     next();
   } catch (error) {

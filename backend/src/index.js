@@ -15,6 +15,14 @@ app.use(cors({
 app.use(express.json());
 const path = require('path');
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+app.use('/uploads', (req, res) => {
+  const transparentGif = Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64');
+  res.writeHead(404, {
+    'Content-Type': 'image/gif',
+    'Content-Length': transparentGif.length
+  });
+  res.end(transparentGif);
+});
 
 // API Routes
 app.use('/api', apiRoutes);

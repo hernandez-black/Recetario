@@ -4,7 +4,11 @@ const authController = require('../controllers/authController');
 const recipeController = require('../controllers/recipeController');
 const commentController = require('../controllers/commentController');
 const favoriteController = require('../controllers/favoriteController');
+const imageController = require('../controllers/imageController');
 const authMiddleware = require('../middlewares/authMiddleware');
+
+// Image routes
+router.get('/images/:id', imageController.getImage);
 
 // Auth routes
 router.post('/auth/register', authController.register);
@@ -13,8 +17,8 @@ router.post('/auth/login', authController.login);
 // Recipe routes
 router.get('/recipes', recipeController.getAllRecipes); // Público
 router.get('/recipes/:id', recipeController.getRecipeById); // Público
-router.post('/recipes', authMiddleware, recipeController.upload.single('image'), recipeController.createRecipe); // Privado
-router.patch('/recipes/:id', authMiddleware, recipeController.upload.single('image'), recipeController.updateRecipe); // Privado
+router.post('/recipes', authMiddleware, recipeController.upload.any(), recipeController.createRecipe); // Privado
+router.patch('/recipes/:id', authMiddleware, recipeController.upload.any(), recipeController.updateRecipe); // Privado
 router.delete('/recipes/:id', authMiddleware, recipeController.deleteRecipe); // Privado
 
 // Comment routes

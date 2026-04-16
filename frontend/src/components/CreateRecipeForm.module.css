@@ -1,123 +1,248 @@
-.card {
-  background: var(--white);
-  padding: 40px;
-  border: 1px solid var(--border);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+.builderContainer {
+  background: white;
+  padding: 0 20px;
 }
 
-.card h2 {
-  margin-bottom: 30px;
-  color: var(--dark);
-  font-family: 'Playfair Display', serif;
-  font-size: 2rem;
-  font-weight: 600;
-  border-bottom: 1px solid var(--border);
-  padding-bottom: 15px;
-}
-
-.form {
+.headerActions {
   display: flex;
-  flex-direction: column;
-  gap: 25px;
+  justify-content: flex-end;
+  gap: 15px;
+  margin-bottom: 20px;
 }
 
-.formGroup {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.formGroup label {
-  font-weight: 600;
-  color: var(--dark);
-  font-size: 0.9rem;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-}
-
-.formGroup input[type="text"],
-.formGroup textarea {
-  padding: 15px;
-  border: 1px solid var(--border);
+.btnOutline {
   background: transparent;
-  color: var(--dark);
-  border-radius: 0;
-  font-family: 'Montserrat', sans-serif;
-  font-size: 1rem;
-  transition: all 0.3s;
-}
-
-.formGroup input:focus,
-.formGroup textarea:focus {
-  outline: none;
-  border-color: var(--primary);
-  box-shadow: 0 0 0 1px var(--primary);
-}
-
-.formGroup textarea {
-  resize: vertical;
-}
-
-.formGroup input[type="file"] {
-  padding: 15px;
-  border: 1px dashed var(--primary);
-  background: var(--light);
-  color: var(--dark);
-  font-size: 0.9rem;
+  border: 1px solid #ccc;
+  color: #666;
+  padding: 8px 16px;
+  border-radius: 4px;
   cursor: pointer;
-  transition: all 0.3s ease;
 }
 
-.formGroup input[type="file"]:hover {
-  background: rgba(232, 159, 92, 0.05); /* very soft primary hint */
+.btnOutline:first-child {
+  color: #ff4d4d;
+  border-color: #ff4d4d;
 }
 
-.formGroup input[type="file"]::file-selector-button {
-  background: var(--dark);
-  color: var(--white);
-  padding: 10px 20px;
+.btnPrimary {
+  background-color: var(--primary-color, #f99f36);
+  color: white;
   border: none;
-  border-radius: 0;
+  padding: 8px 16px;
+  border-radius: 4px;
+  font-weight: bold;
   cursor: pointer;
-  margin-right: 20px;
-  font-family: 'Montserrat', sans-serif;
-  font-weight: 600;
-  text-transform: uppercase;
-  font-size: 0.75rem;
-  letter-spacing: 1px;
-  transition: background 0.3s;
 }
 
-.formGroup input[type="file"]::file-selector-button:hover {
-  background: var(--primary);
-}
-
-.submitBtn {
-  margin-top: 15px;
-  padding: 18px;
-  background: var(--primary);
-  color: var(--white);
-  border: none;
-  border-radius: 0;
-  font-size: 1rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 2px;
-  cursor: pointer;
-  transition: all 0.3s;
-}
-
-.submitBtn:hover:not(:disabled) {
-  background: var(--dark);
-}
-
-.submitBtn:disabled {
-  opacity: 0.6;
+.btnPrimary:disabled {
+  opacity: 0.7;
   cursor: not-allowed;
 }
 
-@media (max-width: 768px) {
-  .card {
-    padding: 25px;
-  }
+.topSection {
+  display: flex;
+  gap: 30px;
+  margin-bottom: 40px;
+}
+
+.mainImageUpload {
+  width: 350px;
+  height: 400px;
+  background-color: #f7f6f2;
+  border-radius: 4px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.previewImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.uploadPlaceholder {
+  text-align: center;
+  padding: 20px;
+  color: #888;
+}
+
+.iconCamera {
+  font-size: 2rem;
+  margin-bottom: 10px;
+  display: block;
+}
+
+.uploadTitle {
+  font-weight: bold;
+  color: #555;
+  margin-bottom: 5px;
+}
+
+.uploadSubtitle {
+  font-size: 0.85rem;
+}
+
+.mainInfo {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.titleInput {
+  font-size: 1.8rem;
+  font-weight: bold;
+  border: none;
+  background: #f7f6f2;
+  padding: 15px;
+  border-radius: 4px;
+  width: 100%;
+  outline: none;
+  color: #333;
+}
+
+.storyInput {
+  flex: 1;
+  border: none;
+  background: #f7f6f2;
+  padding: 15px;
+  border-radius: 4px;
+  width: 100%;
+  resize: none;
+  outline: none;
+  font-size: 1rem;
+  color: #333;
+}
+
+.bottomSection {
+  display: flex;
+  gap: 40px;
+}
+
+.ingredientsSection {
+  flex: 1;
+}
+
+.stepsSection {
+  flex: 2;
+}
+
+.sectionTitle {
+  font-size: 1.5rem;
+  margin-bottom: 20px;
+  color: #111;
+}
+
+.dinersWrap, .timeWrap {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  margin-bottom: 20px;
+  color: #666;
+}
+
+.smallInput {
+  border: none;
+  background: #f7f6f2;
+  padding: 10px;
+  border-radius: 4px;
+  width: 150px;
+  outline: none;
+}
+
+.ingredientsList, .stepsList {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.ingredientRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.dragIcon {
+  color: #ccc;
+  cursor: grab;
+  font-size: 1.2rem;
+}
+
+.itemInput, .stepInput {
+  border: none;
+  background: #f7f6f2;
+  padding: 12px;
+  border-radius: 4px;
+  width: 100%;
+  outline: none;
+}
+
+.addBtn {
+  background: transparent;
+  border: none;
+  font-weight: bold;
+  color: #333;
+  cursor: pointer;
+  text-align: left;
+  padding: 10px 0;
+  margin-top: 10px;
+  display: inline-block;
+}
+
+.stepRow {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.stepHeader {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.stepNumber {
+  background: #555;
+  color: white;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-size: 0.9rem;
+  flex-shrink: 0;
+  margin-top: 10px;
+}
+
+.stepInput {
+  min-height: 50px;
+  resize: vertical;
+}
+
+.stepImageWrapper {
+  margin-left: 60px;
+}
+
+.stepImagePlaceholder {
+  width: 150px;
+  height: 150px;
+  background: #f7f6f2;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.stepPreview {
+  width: 150px;
+  height: 150px;
+  object-fit: cover;
+  border-radius: 4px;
 }
